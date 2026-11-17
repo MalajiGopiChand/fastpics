@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env*
+!.env.example
+public/models/
+public/face-api.js
+*.log
+tests/*-fixture.jpg
+public/qa*

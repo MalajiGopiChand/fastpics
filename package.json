@@ -1,0 +1,28 @@
+{
+  "name": "fastpics",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "test": "node --test tests/*.test.mjs",
+    "postinstall": "node scripts/copy-models.mjs"
+  },
+  "dependencies": {
+    "@imagekit/nodejs": "^7.15.0",
+    "@supabase/supabase-js": "^2.81.0",
+    "@vladmandic/face-api": "1.7.15",
+    "idb": "^8.0.3",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.468.0",
+    "next": "^16.0.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.8"
+  }
+}

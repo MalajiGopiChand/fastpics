@@ -1,0 +1,20 @@
+import 'fake-indexeddb/auto';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createEvent,updateEvent,savePhoto,getPhotos,getGuestEvent,findMatches,deleteEvent} from '../lib/store.js';
+const descriptor=Array.from({length:128},(_,i)=>Math.sin(i)*0.1);
+test('persisted local photos remain readable and match only within their event',async()=>{
+  const first=await createEvent({name:'Local test A',date:'2026-11-17',location:'Test',category:'Other'});
+  const second=await createEvent({name:'Local test B',date:'2026-11-17',location:'Test',category:'Other'});
+  await updateEvent(first,{status:'live'});await updateEvent(second,{status:'live'});
+  const file=new File([new Uint8Array([1,2,3,4])],'test.jpg',{type:'image/jpeg'});
+  await savePhoto(first,file,file,[descriptor]);
+  const persisted=await getPhotos((await getGuestEvent(first.token)).id);
+  assert.equal(persisted.length,1);assert.match(persisted[0].url,/^data:image\/jpeg;base64,/);
+  assert.deepEqual(new Uint8Array(await (await fetch(persisted[0].url)).arrayBuffer()),new Uint8Array([1,2,3,4]));
+  assert.equal((await findMatches(first.token,descriptor)).length,1);
+  assert.equal((await findMatches(second.token,descriptor)).length,0);
+  await updateEvent(first,{status:'draft'});
+  await assert.rejects(()=>findMatches(first.token,descriptor),/not available/);
+  await deleteEvent(first);await deleteEvent(second);
+});
