@@ -146,3 +146,8 @@ Income is the sum of INR 500 payments explicitly recorded with activations from 
 ### Signup without email verification
 
 New Fastpics registrations use `/api/signup`: bounded input, database-backed per-IP throttling, server-confirmed email, and a fixed pending subscription. The endpoint never accepts roles, subscription grants, or edits to existing accounts. It does not send confirmation email. Existing unconfirmed accounts can be enabled when the owner approves them. Password reset still uses email. Owner approval and subscriptions remain required for photographer uploads.
+
+
+### Verified deployment commits
+
+Vercel requires a verified commit signature for deployment. Publish through a verified signing method, such as GitHub-signed commits, and check the commit verification status before expecting an automatic production deployment.
