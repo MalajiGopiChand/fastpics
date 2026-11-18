@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.15.0",
-    "@supabase/supabase-js": "^2.81.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.0",
     "@vladmandic/face-api": "1.7.15",
     "idb": "^8.0.3",
     "jszip": "^3.10.1",

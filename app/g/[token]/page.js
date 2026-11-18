@@ -1,2 +1,3 @@
 import GuestGallery from '../../../components/GuestGallery';
-export default async function GuestPage({params}) { const {token}=await params;return <GuestGallery token={token}/>; }
+import AppBootstrap from '../../../components/AppBootstrap';
+export default async function GuestPage({params}) { const {token}=await params;return <AppBootstrap guest><GuestGallery token={token}/></AppBootstrap>; }

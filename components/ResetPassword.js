@@ -1,0 +1,9 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {supabase} from '../lib/store';
+import {Brand,Spinner} from './Shared';
+export default function ResetPassword(){
+  const [ready,setReady]=useState(false),[signedIn,setSignedIn]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState(false);
+  useEffect(()=>{supabase?.auth.getSession().then(({data})=>{setSignedIn(!!data.session);setReady(true);});if(!supabase)setReady(true);const listener=supabase?.auth.onAuthStateChange((_,session)=>setSignedIn(!!session));return()=>listener?.data.subscription.unsubscribe();},[]);
+  return <div className="loading-screen"><div className="reset-card"><Brand/><h1>Choose a new password.</h1>{!ready?<Spinner/>:done?<><p>Your password has been updated.</p><a className="button primary full-button" href="/">Sign in</a></>:!signedIn?<><p>This reset link is missing or has expired. Request another link from the sign-in page.</p><a href="/" className="button secondary full-button">Back to sign in</a></>:<form onSubmit={async event=>{event.preventDefault();const values=new FormData(event.currentTarget);if(values.get('password')!==values.get('confirm'))return setError('Passwords do not match.');setBusy(true);setError('');try{const result=await supabase.auth.updateUser({password:values.get('password')});if(result.error)throw result.error;await supabase.auth.signOut();setDone(true);}catch(e){setError(e.message);}finally{setBusy(false);}}}><label className="field">New password<input name="password" type="password" minLength={12} autoComplete="new-password" required/></label><label className="field">Confirm new password<input name="confirm" type="password" minLength={12} autoComplete="new-password" required/></label>{error&&<p className="error-text" role="alert">{error}</p>}<button className="button primary full-button" disabled={busy}>{busy?<Spinner/>:'Update password'}</button></form>}</div></div>;
+}

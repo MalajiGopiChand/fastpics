@@ -31,20 +31,20 @@ Original and thumbnail URLs are generated on the server and signed. Guest links 
 
 1. Create a free project at https://supabase.com/dashboard.
 2. Run `supabase/schema.sql` once in SQL Editor. It creates event/photo tables, admin membership, RLS policies, realtime publications, a per-event photo limit and an atomic match rate limiter. It does **not** create a Supabase image bucket; images live in ImageKit.
-3. Create your email/password admin user in Authentication. Disable public signup; the app has no signup form.
+3. Create your email/password admin user in Authentication. Alternatively request an account through the app and confirm your email. New accounts remain pending until approved in the photographers table. Set the Auth Site URL to https://fastpics.vercel.app and allow https://fastpics.vercel.app/account/reset as a redirect URL.
 4. Allow that user by substituting its actual Auth UUID:
 
 ```sql
 insert into public.photographers (id) values ('YOUR-AUTH-USER-UUID');
 ```
 
-5. Put your project URL, public anon key and service-role key in `.env.local`. Never put the service-role key in a `NEXT_PUBLIC_` variable.
+5. Put your project URL, publishable key and server secret key in `.env.local`. Never put the service-role key in a `NEXT_PUBLIC_` variable.
 6. Restart the app and sign in. Upload new photos in connected mode; local demo photos do not automatically migrate.
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-PUBLIC-ANON-KEY
-SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVER-ONLY-SERVICE-KEY
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR-PUBLISHABLE-KEY
+SUPABASE_SECRET_KEY=YOUR-SERVER-ONLY-SECRET-KEY
 IMAGEKIT_PUBLIC_KEY=YOUR-IMAGEKIT-PUBLIC-KEY
 IMAGEKIT_PRIVATE_KEY=YOUR-SERVER-ONLY-IMAGEKIT-KEY
 IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/YOUR-ENDPOINT
@@ -56,7 +56,7 @@ The sample schema is for a new project. If you used an earlier Supabase Storage 
 
 1. Import https://github.com/MalajiGopiChand/fastpics into Vercel.
 2. Choose Next.js, Node 22.x, install `npm ci`, build `npm run build`. The repository root contains `package.json`.
-3. Set all six environment variables above in Vercel. Public Supabase variables are build-time values, so redeploy when changing them.
+3. Set all six environment variables above in Vercel. The app checks configuration and database tables at runtime through /api/config. Redeploy after changing Vercel variables. Hosted sites never silently fall back to browser-only storage.
 4. Deploy, sign in, upload a consenting test collection, then check QR access from a second phone over HTTPS.
 5. Add your domain in Vercel → Project Settings → Domains and apply the DNS records it provides. Generate QR codes from your final domain; their links use the current browser origin.
 
@@ -64,7 +64,7 @@ Camera capture requires HTTPS or localhost. Uploading a selfie works without cam
 
 ## Included
 
-- Admin sign-in, event creation/editing/deletion, search, filters, list/grid views, draft/live/archive states.
+- Separate photographer accounts, account requests, password reset, owner-scoped realtime updates, event creation/editing/deletion, search, filters, list/grid views, draft/live/archive states.
 - Sequential batch uploads, progress, stop-after-current-file, per-file errors and retry.
 - SSD MobileNet face detection, 68-point landmarks and 128-dimensional face descriptors, all processed in the browser with locally served models.
 - Recognition against every indexed face, so group photos and solo photos can both appear in guest results. Photos without detected faces remain available to the admin with an explicit status.
