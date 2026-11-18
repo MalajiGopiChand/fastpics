@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {requestCamera,stopStream} from '../lib/camera.mjs';
+import {imageCanvas,jpegBlob,withTimeout} from '../lib/image-input.mjs';
+test('camera request uses front-camera preference without requiring a particular device',async()=>{let options,stopped=0;const stream={getTracks:()=>[{stop:()=>stopped++}]};const result=await requestCamera({getUserMedia:async value=>{options=value;return stream;}});assert.equal(result,stream);assert.equal(options.video.facingMode.ideal,'user');assert.equal(options.audio,false);stopStream(result);assert.equal(stopped,1);});
+test('camera timeout stops a stream that arrives after the request was abandoned',async()=>{let resolve,stopped=0;const promise=requestCamera({getUserMedia:()=>new Promise(r=>resolve=r)},5);await assert.rejects(promise,/taking too long/);resolve({getTracks:()=>[{stop:()=>stopped++}]});await new Promise(r=>setTimeout(r,0));assert.equal(stopped,1);});
+test('camera failures explain denied permission and unavailable browsers',async()=>{await assert.rejects(()=>requestCamera(undefined),/phone camera/);await assert.rejects(()=>requestCamera({getUserMedia:async()=>{throw Object.assign(new Error(),{name:'NotAllowedError'});}}),/permission was denied/);});
+test('image preparation bounds mobile memory and preserves aspect ratio',()=>{const original=globalThis.document;try{let drawn;globalThis.document={createElement:()=>({getContext:()=>({drawImage:(...args)=>drawn=args})})};const canvas=imageCanvas({naturalWidth:6000,naturalHeight:4000},1600);assert.equal(canvas.width,1600);assert.equal(canvas.height,1067);assert.equal(drawn[3],1600);assert.throws(()=>imageCanvas({width:0,height:0}),/empty/);}finally{globalThis.document=original;}});
+test('null canvas export produces a recoverable error instead of a broken upload',async()=>{await assert.rejects(()=>jpegBlob({toBlob:callback=>callback(null)}),/Could not prepare/);assert.equal(await withTimeout(Promise.resolve('ready'),100,'timeout'),'ready');});
+test('face scanning falls back from GPU failure and rejects invalid descriptors',async()=>{
+ const old={window:globalThis.window,document:globalThis.document,Image:globalThis.Image};let backend='webgl',calls=0,invalid=false;
+ const descriptor=Array.from({length:128},()=>0.1);
+ globalThis.Image=class{set src(value){if(value){this.width=800;this.height=600;queueMicrotask(()=>this.onload());}}};
+ globalThis.document={createElement:()=>({getContext:()=>({drawImage(){}}),toBlob:cb=>cb(new Blob(['preview'],{type:'image/jpeg'}))})};
+ globalThis.window={faceapi:{tf:{ready:async()=>{},getBackend:()=>backend,setBackend:async value=>{backend=value;}},nets:Object.fromEntries(['ssdMobilenetv1','faceLandmark68Net','faceRecognitionNet'].map(key=>[key,{loadFromUri:async()=>{}}])),SsdMobilenetv1Options:class{},detectAllFaces:()=>({withFaceLandmarks:()=>({withFaceDescriptors:async()=>{calls++;if(backend==='webgl')throw Error('GPU unavailable');return [{descriptor:invalid?[NaN]:descriptor}];}})})}};
+ try{const {analyzeFace,previewImage}=await import('../lib/face.js');assert.deepEqual(await analyzeFace(new Blob(['photo'])),[descriptor]);assert.equal(backend,'cpu');assert.equal(calls,2);assert.ok(await previewImage(new Blob(['photo'])) instanceof Blob);invalid=true;await assert.rejects(()=>analyzeFace(new Blob(['photo'])),/invalid data/);}finally{Object.assign(globalThis,old);}
+});

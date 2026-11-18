@@ -61,7 +61,7 @@ export default function Dashboard() {
       for(const file of allowed){
         if(cancel.current||uploadOwner!==identity.current)break;
         setProgress({running:true,done,total:allowed.length,name:file.name});
-        try{const descriptors=await analyzeFace(file);const preview=await previewImage(file);if(uploadOwner!==identity.current)break;await savePhoto(current,file,preview,descriptors);}catch(e){failures.push({file,error:e.message});}
+        try{const descriptors=await analyzeFace(file,{onProgress:message=>{if(uploadOwner===identity.current)setProgress({running:true,done,total:allowed.length,name:`${file.name}: ${message}`});}});const preview=await previewImage(file);if(uploadOwner!==identity.current)break;await savePhoto(current,file,preview,descriptors);}catch(e){failures.push({file,error:e.message});}
         if(uploadOwner!==identity.current)return;
         done++;setProgress({running:true,done,total:allowed.length,name:file.name});
       }
