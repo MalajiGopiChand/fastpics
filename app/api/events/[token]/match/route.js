@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { adminClient, tokenValid, json } from '../../../../../lib/server';
+import { adminClient, tokenValid, json, galleryAccess } from '../../../../../lib/server';
 import { validDescriptor, matchPhotos } from '../../../../../lib/matching.mjs';
 import { imagekitPhotoUrls } from '../../../../../lib/imagekit';
 export const maxDuration = 60;
@@ -12,12 +12,13 @@ export async function POST(request, {params}) {
   if (!validDescriptor(body.descriptor) || body.consent !== true) return json({error:'A valid selfie and consent are required.'},400);
   try {
     const db = adminClient();
-    const {data:event,error} = await db.from('events').select('id').eq('token',token).eq('status','live').maybeSingle();
+    const {data:event,error} = await db.from('events').select('id,owner_id').eq('token',token).eq('status','live').maybeSingle();
     if (error) throw error;
     if (!event) return json({error:'This gallery is not available.'},404);
+    if(!await galleryAccess(db,event.owner_id))return json({error:'This gallery is temporarily unavailable. Please contact your photographer.'},403);
     // Vercel overwrites this header. Other hosts must supply a trusted client IP.
     const ip = request.headers.get('x-vercel-forwarded-for') || 'local-development';
-    const key = createHash('sha256').update(`${token}:${ip}:${process.env.SUPABASE_SERVICE_ROLE_KEY}`).digest('hex');
+    const key = createHash('sha256').update(`${token}:${ip}:${process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY}`).digest('hex');
     const quota = await db.rpc('take_match_slot', {p_key: key});
     if (quota.error) throw quota.error;
     if (!quota.data) return json({error:'Too many searches. Please try again in a few minutes.'},429);

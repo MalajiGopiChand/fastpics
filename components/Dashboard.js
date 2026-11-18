@@ -3,12 +3,13 @@ import { useEffect, useState, useRef } from 'react';
 import { Aperture, LayoutGrid, Images, QrCode, Settings, Plus, Search, ChevronDown, ArrowUpRight, ArrowRight, UploadCloud, Check, CheckCircle2, X, CalendarDays, MapPin, MoreHorizontal, Grid2X2, List, HardDrive, ShieldCheck, ScanFace, Copy, Download, ExternalLink, Trash2, LogOut, Link as LinkIcon, CircleHelp, FolderHeart, Cloud, Camera, ArrowLeft, Pause, Play, Menu } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Brand, Modal, Spinner, formatSize, dateLabel, downloadPhoto } from '../components/Shared';
-import { cloudEnabled, supabase, listEvents, createEvent, updateEvent, getPhotos, savePhoto, deleteEvent, removePhoto, revokePhotos, summary, seedDemo } from '../lib/store';
+import { cloudEnabled, supabase, adminRequest, listEvents, createEvent, updateEvent, getPhotos, savePhoto, deleteEvent, removePhoto, revokePhotos, summary, seedDemo } from '../lib/store';
 import { analyzeFace, previewImage, loadFaceEngine } from '../lib/face';
 import AuthPanel,{AccountAccess} from './AuthPanel';
 
 export default function Dashboard() {
   const [ready,setReady]=useState(false),[user,setUser]=useState(null),[events,setEvents]=useState([]),[stats,setStats]=useState({});
+  const [plan,setPlan]=useState(null);
   const [access,setAccess]=useState('checking'),[accessError,setAccessError]=useState('');
   const identity=useRef(null),authGeneration=useRef(0),refreshGeneration=useRef(0);
   const [view,setView]=useState('events'),[selected,setSelected]=useState(null),[photos,setPhotos]=useState([]),[search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[layout,setLayout]=useState('grid');
@@ -23,7 +24,7 @@ export default function Dashboard() {
     if(identity.current!==nextUser?.id){cancel.current=true;setProgress(null);setFailed([]);identity.current=nextUser?.id||null;refreshGeneration.current++;photoRequest.current++;revokePhotos(photoRef.current);photoRef.current=[];setPhotos([]);setEvents([]);setStats({});setSelected(null);setModal(null);setView('events');}
     setUser(nextUser);setAccessError('');setAccess('checking');
     if(!nextUser){setAccess('none');return;}
-    try{const result=await supabase.from('photographers').select('id').eq('id',nextUser.id).maybeSingle();if(generation!==authGeneration.current)return;if(result.error)throw result.error;if(!result.data){setAccess('pending');return;}setAccess('allowed');await refresh();}
+    try{const result=await adminRequest('/api/account');if(generation!==authGeneration.current)return;setPlan(result);if(!result.allowed){setAccess(result.status);setAccessError(result.status==='pending'?'':result.status==='expired'?'Your trial or subscription has ended. Contact the owner to activate paid access.':'Your account is suspended. Contact the owner.');return;}setAccess('allowed');await refresh();}
     catch(e){if(generation===authGeneration.current){setAccess('error');setAccessError(e.message);}}
   }
   async function loadPhotos(event){const request=++photoRequest.current;const p=await getPhotos(event.id);if(request!==photoRequest.current||selectedRef.current?.id!==event.id){revokePhotos(p);return;}revokePhotos(photoRef.current);photoRef.current=p;setPhotos(p);}
@@ -76,7 +77,7 @@ export default function Dashboard() {
   if(cloudEnabled&&access!=='allowed')return <AccountAccess user={user} error={accessError} onRetry={()=>activateSession({user})}/>;
   const studioName=user?.user_metadata?.studio_name||user?.email?.split('@')[0]||'Demo photography studio';
   return <div className="app-shell">
-    <aside className={`sidebar ${mobile?'open':''}`}><a href="/" className="brand-link"><Brand/></a><div className="workspace-pill"><div className="workspace-avatar">{studioName[0].toUpperCase()}</div><div>{studioName}<small>Photographer workspace</small></div></div><span className="nav-label">WORKSPACE</span><nav>
+    <aside className={`sidebar ${mobile?'open':''}`}><a href="/" className="brand-link"><Brand/></a><div className="workspace-pill"><div className="workspace-avatar">{studioName[0].toUpperCase()}</div><div>{studioName}<small>Photographer workspace</small></div></div><span className="nav-label">WORKSPACE</span>{user?.app_metadata?.fastpics_role==='owner'&&<a className="button secondary" href="/admin">Owner console</a>}<nav>
       <button className={['events','gallery'].includes(view)?'active':''} onClick={()=>nav('events')}><LayoutGrid size={19}/>My events<span className="nav-count">{events.length}</span></button>
       <button className={view==='all'?'active':''} onClick={()=>nav('all')}><Images size={19}/>All collections</button>
       <button className={view==='sharing'?'active':''} onClick={()=>nav('sharing')}><QrCode size={19}/>QR & sharing</button>
@@ -84,7 +85,7 @@ export default function Dashboard() {
     </nav><div className="sidebar-bottom"><div className="storage-box"><div><HardDrive size={16}/><strong>{cloudEnabled?'Cloud storage':'Browser storage'}</strong><span>{cloudEnabled?'FREE':'LOCAL'}</span></div><div className="meter"><i style={{width:`${Math.min(100,allSize/3e9*100)}%`}}/></div><small>{formatSize(allSize)}{cloudEnabled?' of 3 GB used':' saved on this device'}</small><button onClick={()=>nav('settings')}>Manage storage <ArrowUpRight size={14}/></button></div><button className="help-button" onClick={()=>setModal('help')}><CircleHelp size={18}/>A little help?</button><div className="profile"><span>{studioName.slice(0,2).toUpperCase()}</span><div>{studioName}<small>{user?.email||'Demo workspace'}</small></div>{cloudEnabled&&<button className="icon-button" aria-label="Sign out" onClick={()=>act(()=>supabase.auth.signOut())}><LogOut size={17}/></button>}</div></div></aside>
     {mobile&&<button className="mobile-scrim" aria-label="Close menu" onClick={()=>setMobile(false)}/>}
     <main className="main"><header className="topbar"><div><button className="icon-button mobile-menu" aria-label="Open menu" onClick={()=>setMobile(true)}><Menu/></button><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{view==='gallery'?current?.name:view==='settings'?'Settings':view==='sharing'?'QR & sharing':view==='all'?'All collections':'My events'}</strong></div><div className="top-right"><span className="connection"><i/>{cloudEnabled?'Cloud mode':'Local demo'}</span><button className="icon-button" aria-label="Help" onClick={()=>setModal('help')}><CircleHelp size={19}/></button><span className="top-avatar">G</span></div></header>
-    <div className="page-content">
+    <div className="page-content">{cloudEnabled&&plan&&plan.status!=='owner'&&<div className="owner-notice"><strong>{plan.status==='trial'?'Your 2-day free trial':'Monthly plan · ₹500'}</strong><p>Access until {new Date(plan.expiresAt).toLocaleString()}. Contact the owner to renew for ₹500/month.</p></div>}
       {error&&<div className="error-banner" role="alert">{error}<button onClick={()=>act(async()=>{await refresh();setError('');})}>Retry</button></div>}
       {!cloudEnabled&&<div className="demo-note"><span><span className="tiny-dot"/>Demo workspace · Photos stay in this browser until you connect cloud storage.</span><button onClick={()=>nav('settings')}>Connect cloud <ArrowRight size={14}/></button></div>}
       {['events','all'].includes(view)&&<>

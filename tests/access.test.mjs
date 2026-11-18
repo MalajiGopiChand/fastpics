@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {accountAccess,changeSubscription,TRIAL_MS} from '../lib/access.mjs';
+const now=Date.parse('2026-11-18T12:00:00Z');
+const user=p=>({app_metadata:{fastpics_subscription:p}});
+test('approval grants exactly 48 hours, reapproval cannot restart it',()=>{const p=changeSubscription({},'approve',now);assert.equal(accountAccess(user(p),now+TRIAL_MS-1).allowed,true);assert.equal(accountAccess(user(p),now+TRIAL_MS).allowed,false);assert.equal(changeSubscription(p,'approve',now+TRIAL_MS).trial_ends_at,p.trial_ends_at);});
+test('pending, suspended and expired accounts fail closed',()=>{assert.equal(accountAccess(user({}),now).status,'pending');const p=changeSubscription({},'approve',now);assert.equal(accountAccess(user({...p,suspended:true}),now).allowed,false);assert.equal(accountAccess(user({...p,trial_ends_at:'invalid'}),now).allowed,false);});
+test('manual monthly access expires and never trusts user metadata',()=>{const p=changeSubscription({},'activate',now);assert.equal(p.paid_until,'2026-12-18T12:00:00.000Z');assert.equal(p.amount_inr,500);assert.equal(accountAccess(user(p),now).status,'active');assert.equal(accountAccess(user(p),Date.parse(p.paid_until)).allowed,false);assert.equal(accountAccess({user_metadata:{fastpics_role:'owner'}},now).allowed,false);assert.equal(accountAccess({app_metadata:{fastpics_role:'owner'}},now).status,'owner');});
+test('monthly renewal extends current expiry and clamps month end',()=>{const p=changeSubscription({},'activate',Date.parse('2027-01-31T12:00:00Z'));assert.equal(p.paid_until,'2027-02-28T12:00:00.000Z');const renewed=changeSubscription(p,'activate',Date.parse('2027-02-01T12:00:00Z'));assert.equal(renewed.paid_until,'2027-03-28T12:00:00.000Z');assert.throws(()=>changeSubscription({},'owner',now));});

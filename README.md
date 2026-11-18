@@ -119,3 +119,16 @@ Verify the configured cloud setup before real events: two-admin isolation, anony
 - `supabase/schema.sql` — database/access setup.
 
 Models come from `@vladmandic/face-api` and are copied into `public/models` at installation; consult its [documentation](https://github.com/vladmandic/face-api/blob/master/TUTORIAL.md) and bundled license. Fonts use Google Fonts with local fallbacks; example event covers use Unsplash. Real event photos and selfies are never sent to those providers.
+
+
+## Owner console and monthly subscriptions
+
+Open `/admin` and sign in with the securely provisioned owner account. Owner authority uses server-controlled Supabase `app_metadata.fastpics_role`; public profile fields cannot grant it. No owner password is stored in this repository.
+
+Run `supabase/subscriptions.sql` after the base schema, including on existing installations. It updates RLS to check current server metadata and expiry on every database request. The readiness endpoint requires this migration before enabling the hosted UI.
+
+The only paid plan is **INR 500 per calendar month**, manually activated by the owner after payment is confirmed outside Fastpics. There is no payment gateway, automatic billing, or automatic renewal. Each activation extends a still-active paid period by one month, or starts from the activation time. Month-end dates are clamped to the last day of the next month.
+
+Approving a confirmed client starts a one-time 48-hour trial. Reapproval and resuming a suspended account never reset the trial. The owner can approve, suspend/resume, activate/renew/end paid access, view client event/photo counts and the latest 100 event records, and pause/open individual galleries. No passwords, face descriptors or original images are exposed in the client directory. Suspended and expired accounts lose uploads, direct database access, and new guest photo searches; already-issued signed photo links last until their existing expiry.
+
+Only allowlist trusted photographers while using ImageKit V1 upload signatures (see ImageKit section).
