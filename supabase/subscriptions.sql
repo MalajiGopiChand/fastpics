@@ -5,9 +5,8 @@ create or replace function public.is_photographer() returns boolean
 language sql stable security definer set search_path = '' as $$
  select exists (
   select 1 from auth.users u join public.photographers p on p.id=u.id
-  where u.id=auth.uid() and (
-   u.raw_app_meta_data->>'fastpics_role'='owner'
-   or (
+  where u.id=auth.uid() and coalesce(u.raw_app_meta_data->>'fastpics_role','')!='owner' and (
+   (
     u.raw_app_meta_data->'fastpics_subscription'->>'approved'='true'
     and coalesce(u.raw_app_meta_data->'fastpics_subscription'->>'suspended','false')!='true'
     and (

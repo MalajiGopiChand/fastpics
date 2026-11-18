@@ -24,7 +24,7 @@ export default function Dashboard() {
     if(identity.current!==nextUser?.id){cancel.current=true;setProgress(null);setFailed([]);identity.current=nextUser?.id||null;refreshGeneration.current++;photoRequest.current++;revokePhotos(photoRef.current);photoRef.current=[];setPhotos([]);setEvents([]);setStats({});setSelected(null);setModal(null);setView('events');}
     setUser(nextUser);setAccessError('');setAccess('checking');
     if(!nextUser){setAccess('none');return;}
-    try{const result=await adminRequest('/api/account');if(generation!==authGeneration.current)return;setPlan(result);if(!result.allowed){setAccess(result.status);setAccessError(result.status==='pending'?'':result.status==='expired'?'Your trial or subscription has ended. Contact the owner to activate paid access.':'Your account is suspended. Contact the owner.');return;}setAccess('allowed');await refresh();}
+    try{const result=await adminRequest('/api/account');if(generation!==authGeneration.current)return;setPlan(result);if(result.status==='owner'){location.replace('/admin');return;}if(!result.allowed){setAccess(result.status);setAccessError(result.status==='pending'?'':result.status==='expired'?'Your trial or subscription has ended. Contact the owner to activate paid access.':'Your account is suspended. Contact the owner.');return;}setAccess('allowed');await refresh();}
     catch(e){if(generation===authGeneration.current){setAccess('error');setAccessError(e.message);}}
   }
   async function loadPhotos(event){const request=++photoRequest.current;const p=await getPhotos(event.id);if(request!==photoRequest.current||selectedRef.current?.id!==event.id){revokePhotos(p);return;}revokePhotos(photoRef.current);photoRef.current=p;setPhotos(p);}

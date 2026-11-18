@@ -1,11 +1,12 @@
 import {requireOwner,json,apiError,tokenValid} from '../../../../lib/server';
-import {accountAccess,changeSubscription} from '../../../../lib/access.mjs';
+import {accountAccess} from '../../../../lib/access.mjs';
 export async function GET(request){
   try{
     const {db}=await requireOwner(request);
     const page=Math.max(1,Math.min(10000,Number(new URL(request.url).searchParams.get('page'))||1));
     const result=await db.auth.admin.listUsers({page,perPage:25});if(result.error)throw result.error;
-    const clients=result.data.users.map(u=>({id:u.id,email:u.email,studio:u.user_metadata?.studio_name||'',confirmed:!!u.email_confirmed_at,createdAt:u.created_at,...accountAccess(u)}));
+    const usage=await db.rpc('owner_client_usage',{p_ids:result.data.users.map(u=>u.id)});if(usage.error)return json({error:'Run owner-management.sql in Supabase to enable owner reporting.'},503);
+    const clients=result.data.users.filter(u=>u.app_metadata?.fastpics_role!=='owner').map(u=>({id:u.id,email:u.email,studio:u.user_metadata?.studio_name||'',confirmed:!!u.email_confirmed_at,createdAt:u.created_at,lastLogin:u.last_sign_in_at,usage:usage.data?.[u.id],...accountAccess(u)}));
     return json({clients,page,hasMore:!!result.data.nextPage});
   }catch(e){return apiError(e);}
 }
@@ -19,11 +20,9 @@ export async function PATCH(request){
     const target=result.data.user;
     if(target.app_metadata?.fastpics_role==='owner'||target.id===user.id)return json({error:'Owner accounts cannot be changed here.'},403);
     if(!target.email_confirmed_at)return json({error:'The client must confirm their email first.'},409);
-    let subscription;try{subscription=changeSubscription(target.app_metadata?.fastpics_subscription||{},body.action);}catch(e){return json({error:e.message},400);}
-    subscription.updated_at=new Date().toISOString();subscription.updated_by=user.id;
-    // Membership alone never grants access: current server metadata and RLS must also permit it.
-    if(subscription.approved){const membership=await db.from('photographers').upsert({id:target.id});if(membership.error)throw membership.error;}
-    const saved=await db.auth.admin.updateUserById(target.id,{app_metadata:{...target.app_metadata,fastpics_subscription:subscription}});if(saved.error)throw saved.error;
-    return json({access:accountAccess(saved.data.user)});
+    if(!['approve','suspend','resume','activate','cancel'].includes(body.action)||!tokenValid(body.requestId))return json({error:'Invalid account action or request ID.'},400);
+    const saved=await db.rpc('owner_change_access',{p_client:target.id,p_actor:user.id,p_action:body.action,p_request:body.requestId});
+    if(saved.error){if(saved.error.code==='PGRST202')return json({error:'Run owner-management.sql in Supabase before managing subscriptions.'},503);throw saved.error;}
+    return json({saved:true});
   }catch(e){return apiError(e);}
 }

@@ -132,3 +132,12 @@ The only paid plan is **INR 500 per calendar month**, manually activated by the 
 Approving a confirmed client starts a one-time 48-hour trial. Reapproval and resuming a suspended account never reset the trial. The owner can approve, suspend/resume, activate/renew/end paid access, view client event/photo counts and the latest 100 event records, and pause/open individual galleries. No passwords, face descriptors or original images are exposed in the client directory. Suspended and expired accounts lose uploads, direct database access, and new guest photo searches; already-issued signed photo links last until their existing expiry.
 
 Only allowlist trusted photographers while using ImageKit V1 upload signatures (see ImageKit section).
+
+
+### Management-only owner dashboard
+
+The owner signs in at `/admin` (or is redirected there after signing in at `/`). Owners have no photographer signup, trial-approval screen, studio link, or upload access. Client accounts remain separate.
+
+Run `supabase/owner-management.sql` once in SQL Editor after the base schema. It includes the subscription migration and adds aggregate usage reports, a private manual-payment ledger, and transactional subscription updates. Payment activations use unique request IDs: retries of the same request cannot charge the ledger twice or extend the subscription twice. All management functions are restricted to the server service role; API routes independently verify the authenticated owner.
+
+Income is the sum of INR 500 payments explicitly recorded with activations from this release, not projected revenue or proof of money collected. Existing paid accounts are not backfilled as received income. Sign-in totals use retained `auth.audit_log_entries` login records and require Supabase database audit logging; they are not active-session counts. Storage usage sums uploaded photo sizes, not CDN bandwidth or Supabase database capacity.
