@@ -19,8 +19,9 @@ export async function PATCH(request){
     const result=await db.auth.admin.getUserById(body.id);if(result.error||!result.data.user)return json({error:'Client not found.'},404);
     const target=result.data.user;
     if(target.app_metadata?.fastpics_role==='owner'||target.id===user.id)return json({error:'Owner accounts cannot be changed here.'},403);
-    if(!target.email_confirmed_at)return json({error:'The client must confirm their email first.'},409);
+
     if(!['approve','suspend','resume','activate','cancel'].includes(body.action)||!tokenValid(body.requestId))return json({error:'Invalid account action or request ID.'},400);
+    if(!target.email_confirmed_at){const confirmed=await db.auth.admin.updateUserById(target.id,{email_confirm:true});if(confirmed.error)throw confirmed.error;}
     const saved=await db.rpc('owner_change_access',{p_client:target.id,p_actor:user.id,p_action:body.action,p_request:body.requestId});
     if(saved.error){if(saved.error.code==='PGRST202')return json({error:'Run owner-management.sql in Supabase before managing subscriptions.'},503);throw saved.error;}
     return json({saved:true});

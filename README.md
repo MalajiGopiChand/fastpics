@@ -141,3 +141,8 @@ The owner signs in at `/admin` (or is redirected there after signing in at `/`).
 Run `supabase/owner-management.sql` once in SQL Editor after the base schema. It includes the subscription migration and adds aggregate usage reports, a private manual-payment ledger, and transactional subscription updates. Payment activations use unique request IDs: retries of the same request cannot charge the ledger twice or extend the subscription twice. All management functions are restricted to the server service role; API routes independently verify the authenticated owner.
 
 Income is the sum of INR 500 payments explicitly recorded with activations from this release, not projected revenue or proof of money collected. Existing paid accounts are not backfilled as received income. Sign-in totals use retained `auth.audit_log_entries` login records and require Supabase database audit logging; they are not active-session counts. Storage usage sums uploaded photo sizes, not CDN bandwidth or Supabase database capacity.
+
+
+### Signup without email verification
+
+New Fastpics registrations use `/api/signup`: bounded input, database-backed per-IP throttling, server-confirmed email, and a fixed pending subscription. The endpoint never accepts roles, subscription grants, or edits to existing accounts. It does not send confirmation email. Existing unconfirmed accounts can be enabled when the owner approves them. Password reset still uses email. Owner approval and subscriptions remain required for photographer uploads.
